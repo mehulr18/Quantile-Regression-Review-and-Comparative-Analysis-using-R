@@ -1,0 +1,551 @@
+\UseRawInputEncoding
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{dsfont}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{setspace}
+
+\usepackage[skip=7pt plus1pt, indent=40pt]{parskip}
+\usepackage{listings}
+\renewcommand{\footnoterule}{\hrule} 
+\lstset{
+  basicstyle=\scriptsize\ttfamily,   % Set the font and size
+  language=R,                  % Specify the programming language
+  frame=single,                % Add a frame around the code
+  %numbers=left,                % Add line numbers
+  numberstyle=\tiny,           % Set the style of line numbers
+  breaklines=true,             % Enable line breaks
+  captionpos=b,                % Position of the caption
+}
+
+
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\begin{document}
+
+\title{Quantile Regression*\\
+{\footnotesize \textsuperscript{*}
+A Review and Comparative Analysis in R
+\\
+Final Project for the Research Module in Econometrics and Statistics
+\\
+University of Bonn
+\\
+Winter-Term 2023/2024
+\\
+Supervisor: JProf. Dr. Claudia Noack}
+}
+
+\author{\IEEEauthorblockN{Nair, Lekshmipriya}
+\IEEEauthorblockA{\textit{University of Bonn}}
+\and
+\IEEEauthorblockN{Rawat, Mehul}
+\IEEEauthorblockA{\textit{University of Bonn}}
+\and
+\IEEEauthorblockN{Ortner, Karl-Herrmann}
+\IEEEauthorblockA{\textit{University of Bonn}}
+}
+
+\maketitle
+\begin{spacing}{1.5}
+\begin{abstract}
+
+The broad and cheap availability of computational power nowadays allows researchers to consider regression analysis tools apart from ordinary least squares regression. One of these methods, now emerging in various fields, is quantile regression, which allows its users to analyze not only the central tendency of data but also more sophisticated and nuanced relationships over the whole distribution of the underlying data.
+In this paper, we provide a broad overview of different aspects of quantile regression.
+We use Monte-Carlo simulations to assess the quality of the coefficient estimates, obtained using R's \textit{quantreg}-package, over a range of quantiles in terms of finite sample properties. Further, we assess the quality of predictions, using median quantile regression for different settings regarding the underlying data, while comparing it to ordinary least squares.
+Finally, we address the issue of quantile crossings and provide insight in one mitigation strategy.
+Our findings are, that the quantile regression coefficient estimates are consistent and exhibit a coverage probability close to the confidence level. But at the same time, we conclude that these estimates are not unbiased. Further, we can show that in the presence of heteroscedastic data or outliers, median quantile regression can be a preferable method for prediction purposes when compared to ordinary least squares regression.
+Finally, we can derive that log-transforming the data before conducting quantile regression on it greatly decreases the issue of quantile crossing, but not completely.
+This paper concludes by reaffirming quantile regression as a versatile analysis tool over a broad range of research applications.
+
+\end{abstract}
+
+\section{\textbf{Introduction}}
+In statistical modeling, regression analysis has been developed to quantify the relationship between the dependent variable and the independent variables for more than 200 years. Standard Linear Regression has been one of the most widely used regression methods to capture the effects at the mean. When using ordinary least squares (OLS) regression to describe the relationship between a dependent and one or more independent variables, we end up with a summary of conditional averages, that might fail to show a complete picture of the relationship between the dependent variable and the independent variables (\textit{" [...] just as the mean gives an incomplete picture of a single distribution, so the regression curve gives a correspondingly incomplete picture for a set of distributions"}) \textcolor{blue}{Koenker (2005)}. In particular, when one of the core assumptions of OLS is violated, i.e. when we are dealing with heteroscedastic data, the relationship provided by the OLS fails even more to capture all nuances sufficiently.
+The following is based on  \textcolor{blue}{Huang et. al. (2017)}: The shortcomings of OLS pave the way for a method called Quantile Regression (QR). Introduced by Koenker and Bassett in 1978  \textcolor{blue}{Koenker and Bassett (1978)}, QR signifies a paradigm shift from mean regression by broadening the analytical scope to estimate conditional quantiles of the dependent variable.  QR complements and improves the traditional mean regression models. In situations where the homogeneity assumption is violated, QR quantifies the heterogeneous effects of covariates through conditional quantiles of the outcome variable and provides a comprehensive look at the distribution of the outcome. Adding to that, the fact that when asymmetries and heavy tails exist, the sample median (50th percentile) provides a better summary of centrality than the mean. As a result, compared to OLS, QR is more robust to outliers and more flexible, because the distribution of the outcome does not need to be strictly specified as certain parametric assumptions. Although mean regression-based methods still dominate the statistical modeling fields, QR can be viewed as a critical extension and complement when assumptions are violated or a comprehensive look at the outcomes is required. For example, QR is widely used by researchers, economists, financial investors, healthcare professionals, and policymakers in the fields of finance, medicine, environmental studies, marketing, governance, and policy making.
+
+Nevertheless, there are several shortcomings or limitations of quantile regression:
+\begin{itemize}
+\item \textbf{Sensitivity to outliers:} While quantile regression is robust to some degree against outliers, extreme values can still influence the estimates, especially at the tails of the distribution.
+\item \textbf{Sample size concerns:} With small sample sizes, quantile regression estimates might be less precise, leading to wider confidence intervals and potentially less reliable results, especially for extreme quantiles (e.g. 0.1-quantile or 0.9-quantile)
+\item \textbf{Linearity assumption:} The assumption of a linear relationship will often be violated in non-linear real-life settings.
+\item \textbf{Quantile crossings:} In practical applications, the estimated quantile functions can cross, since we are estimating multiple linear functions with differing slopes, thus, they will cross at some values of the covariate  \textcolor{blue}{Hansen (2022)}. In pure theory, this cannot happen (by definition). There are several possible ways to deal with this problem:
+\begin{enumerate}
+\item Respecification of the model (e.g. logarithmic transformation), when the problem of quantile crossings arises due to a poorly chosen functional relationship (e.g. linear when in fact it is not)  \textcolor{blue}{Hansen (2022)}.
+\item Reassessment of the empirical task. That is, one could constrain the interval of covariates to exclude extreme values  \textcolor{blue}{Koenker (2005}.
+\item Constraining. One could constrain the estimated functions e.g. by monotonically ranking their intercepts to satisfy monotonicity  \textcolor{blue}{Koenker (2005)}.
+\item Rearrangement. Here one takes the estimated quantile regression functions and rearranges the estimates so that they satisfy the monotonicity requirements \textcolor{blue}{Koenker (2005)}.
+\end{enumerate}
+
+\end{itemize}
+
+\section{\textbf{Derivation and Theoretical Properties of Quantile Regression}}
+
+\subsection{\textbf{Derivation}}
+
+The following is taken from Hansen (2021) \textcolor{blue}{Hansen (2022)}
+For $\tau \in$ [0, 1] the $\tau^{th}$ quantile $q_{\tau}$ of the dependent variable Y is, by definition, the value such that 
+\begin{equation}
+\mathbb{P}(Y \leq q_{\tau}) = \tau
+\end{equation}.
+Further, we define the \textbf{conditional quantile} of Y given X = x as the value $q_{\tau}(x)$ such that 
+\begin{equation}
+\mathbb{P}(Y \leq q_{\tau}(x) | X = x) = \tau
+\end{equation}where the function $q_{\tau}$ is also called the \textbf{quantile regression function}. 
+From this we can define the \textbf{conditional quantile operators}
+\begin{equation}
+ \mathbb{Q}_{\tau}[Y | X = x]
+ \end{equation}
+  as the resp. solutions to to the equation $\mathbb{P}(Y \leq q_{\tau}) = \tau$
+Similar to the ordinary regression model, we define the \textbf{quantile regression model}
+
+\begin{equation}
+\begin{aligned}
+Y &= q_{\tau}(X) + e \\
+\mathbb{Q}_{\tau}[e | X] &= 0
+\end{aligned}
+\end{equation}
+
+Finally, when assuming a model linear in the coefficients, we end with the \textbf{linear quantile regression model}:
+
+\begin{equation}
+\begin{aligned}
+\mathbb{Q}_{\tau}[Y | X = x] &= Y&= X \beta_{\tau} + e \\
+\mathbb{Q}_{\tau}[e | X] &= 0
+\end{aligned}
+\end{equation}
+
+Where:
+\begin{itemize}
+  \item $\mathbb{Q}_{\tau}[Y | X = x] $ represents the $\tau$-th conditional quantile of the response variable $Y$ given the predictor variables $X$.
+  \item $X$ denotes the matrix of predictor variables.
+  \item $\beta_{\tau}$ is the vector of coefficients associated with each predictor at the $\tau$-th quantile.
+  \item $e$ denotes the error term
+\end{itemize}
+
+To find the parameter vector  $\beta_{\tau}$ we define the following tilted absolute loss function, also called \textbf{check function}:
+\begin{equation}
+\begin{aligned}
+\rho_{\tau}(x) &=
+\begin{cases}
+		-x (1- \tau) & \text{if } x < 0 \\
+		x \tau & \text{if } x \geq 0
+\end{cases} \\
+	&= x(\tau - \mathds{1}(x < 0))
+\end{aligned}
+\end{equation}
+
+From this we can obtain $\beta_{\tau}$ by minimizing the check function - that, is:
+
+\begin{equation}
+\sum_{i = 1}^{n} \rho_{\tau}(y_{i} - x_{i}'\beta_{\tau})
+\end{equation}
+
+Where:
+\begin{itemize}
+  \item $\rho_{\tau}(u) = u(\tau - I(u < 0))$ is the check function associated with the $\tau$-th quantile.
+  \item $y_i$ represents the observed value of the response variable for the $i$-th observation.
+  \item $x_i$ denotes the vector of predictor variables for the $i$-th observation.
+  \item $x_i'\beta_{\tau}$ is the linear predictor for the $i$-th observation.
+  \item $I(u < 0)$ is an indicator function that equals $1$ if the condition inside the parentheses is true and $0$ otherwise.
+\end{itemize}
+
+Taking the argmin, we obtain the coefficient vector $\beta_{\tau}$ as the \textbf{best linear quantile predictor}:
+
+\begin{equation}
+\beta_{\tau} \overset{\operatorname{def}}{=} \underset{b}{\mathrm{argmin}} \mathbb{E}[ \rho_{\tau}(Y - X' b)]
+\end{equation}
+Since (8) has no closed-form solution we rely on numerical optimization algorithms to derive the solution. \footnote{There are various optimization algorithms within the quantreg-package in R, that can be called while using the rq()-function, each optimized for different settings regarding the data. The default one used throughout this paper is the "br" algorithm.}
+
+
+\subsection{\textbf{Estimation}}
+
+When estimating (8) from data, we can use the sample average as an estimator of this function:
+\begin{equation}
+M_{n}(\beta ; \tau) = \frac{1}{n} \sum_{i = 1}^{n} \rho_{\tau} (Y_{i} - X_{i}' \beta)
+\end{equation}
+Since $\beta_{\tau}$ minimizes $M(\beta ; \tau)$, which is estimated by $M_{n}(\beta ; \tau)$ the m-estimator for $\beta_{\tau}$ is the minimizer of $M(\beta ; \tau)$:
+\begin{equation}
+\hat{\beta}_{\tau} = \underset{\beta}{\mathrm{argmin}} M_{n}(\beta ; \tau)
+\end{equation}
+
+\section{\textbf{Theoretical Properties}}
+In the previous chapter, we stated the rationale for quantile regression, derived its theoretical foundation, and gave an outlook on why numerical optimization is used to derive the quantile regression estimator.
+In this chapter, we will describe the process of how we assessed the finite sample properties of the quantile regression estimators.
+
+\subsection{\textbf{Setup}}
+In the first step, we introduce our data generating process (DGP) that we will use subsequently to simulate data, and further for the assessment of the respective quantile regression estimators.
+Revisiting literature from the field of environmental economics, we decided to consider a slightly altered version of the DGP proposed in the paper from Keho \textit{"Revisiting the Income, Energy Consumption and Carbon Emissions Nexus: New Evidence from Quantile Regression for Different Country Groups"} \textcolor{blue}{Keho (2017)}:
+\begin{equation}
+CO_{2} {=} \beta_{0} + \beta_{1} * Income + \beta_{2} * Income^{2} + \epsilon
+\end{equation}
+Here:
+\begin{itemize}
+\item $CO_{2}$ is our dependent variable $y_{i}$
+\item $Income$ is our independent variable, which follows a truncated normal distribution (to avoid negative values for income) with $\mu = 100$, $\sigma = 30$, $a = 0$, and $b = \infty$
+\item $\epsilon$ is our heteroscedastic error term, taken from a truncated normal distribution with  $\mu = 0$, 	$\sigma = Income_{i}*70$, $a=-1.5*\beta-{0}$, and $b = \infty$
+\item $\beta_{0}$ is the intercept
+\item $\beta_{1}$ and $\beta_{2}$ are the coefficients for the independent variable
+\end{itemize}
+
+Keho's paper or rather the equation above refers to the \textit{environmental Kuznets curve} (EKC) or the EKC hypothesis respectively, that assumes "an inverted U-shaped relationship between economic activity and environmental degradation [pollution]" \textcolor{blue}{Mishra (2017)}.
+This conception is derived from the empirical observation that low-income countries tend to exhibit relatively low pollution levels. The same tendency for relatively low pollution levels can be observed for high-income countries. In between, for middle-income countries, the pollution level seems to have a maximum value \textcolor{blue}{Kolstad (2011)}.
+As the EKC hypothesis implies $\beta_{1}$ enters the DGP equation with a positive sign while $\beta_{2}$ is negative \textcolor{blue}{Keho (2017)}.
+Following this insight, we recreated the DGP in equation (11) in R accordingly with the following coefficient values:
+\begin{itemize}
+\item $\beta_{0} = 5000$
+\item $\beta_{1} = 175$
+\item $\beta_{2} = -0.75$
+\end{itemize}
+
+The general idea to use quantile regression in this setting follows the subsequent reasoning:
+The EKC hypothesis is often used to argue, that issues like pollution will be overcome with increasing prosperity, since when people's substantial needs are fulfilled, they can "afford" to devote some of their income to the protection and perseverance of the environment \textcolor{blue}{Kolstad (2011)}. This is, to argue, that excessive pollution is mostly a temporary issue, as long as income growth persists, so that later on this issue can be solved. Without going further into detail regarding the critics of this hypothesis, in this paper, we will generally assume that this reasoning holds, and thus work with simulated data that supports the EKC hypothesis.
+Nevertheless, by including randomness and heteroscedasticity in our DGP, we create a setting in which quantile regression can offer some additional insight compared to more traditional tools like linear regression.
+This is because quantile regression allows us to investigate the impact of additional income on pollution levels for different quantiles simultaneously. So, when these impacts differ significantly, we can infer that it might be reasonable to apply different policy recommendations for these different quantiles instead of applying the same policy to the whole distribution like we could be tempted to do when only considering the conditional average effect we would obtain from an ordinary least-squares setting.
+
+When implementing quantile regression in R, we make use of the \textit{quantreg}-package. As stated in Chapter II, to derive the $\beta$-coefficient estimates for the respective quantiles, one needs to rely on numerical optimization algorithms. This task can be easily done within this R-package with the \textit{rq()}-function \textcolor{blue}{R-Documentation}.
+
+To visualize our DGP and to provide a first (visual) impression of how this comparison between OLS and quantile regression looks like, Fig. 1 gives a depiction.
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{dgp.png}
+\caption{The Data Generating Process}
+\end{figure}
+Besides the OLS regression line (orange) we also depict five quantile regression lines (green) for the respective 0.05, 0.25, 0.5, 0.75, and 0.95 quantiles. \footnote{Unless stated otherwise, these five quantiles will remain our quantiles of interest throughout this whole paper.}
+From this singular draw from our DGP, it is observable that the conditional mean impact of income on carbon emissions (outlined by the OLS regression line) is not necessarily a good indicator of the impact when focusing on different parts of the distribution, especially towards the tails.
+
+Now, to assess the quantile regression estimator's quality we first had to make another step. Since our true $\beta$-coefficients for our DGP only determine the average conditional relationship between Carbon Emissions (y) and Income (X), we need to derive first the "true" resp. "semi-true" $\beta$-coefficients for our resp. quantiles of interest.
+For this, after setting the \textit{seed} to \textit{4321} we created a function, \textbf{\textit{beta\textunderscore averages}(S)}, where the only variable input, S, is the number repeated draws.
+The function then creates a sample of size n = 10,000 of data points from our DGP and, applying the \textit{rq-function} calculates the respective $\beta$-coefficient estimates for all our quantiles of interest and stores them. Then, after doing this task S times, it calculates the respective averages, which can then be used as our "semi-true" $\beta$-coefficient matrix. For S = 1000 draws, we end up with the following matrix:
+
+\begin{center}
+\begin{tabular}{||c c c c||} 
+ \hline
+ quantiles & beta0 \textunderscore avgs & beta1  \textunderscore avgs & beta2  \textunderscore avgs \\ [0.5ex] 
+ \hline\hline
+ 0.05 & 2188.375 & 114.612 & -0.498 \\ 
+ \hline
+ 0.25 & 4619.576 & 126.960 & -0.494 \\
+   \hline
+  0.5 & 4899.535 & 170.452 & -0.572\\
+   \hline
+ 0.75 & 4981.382 & 217.775 & -0.624\\
+   \hline
+  0.95 & 5081.246 & 284.961 & -0.656 \\
+ \hline
+\end{tabular}
+\end{center}
+
+Hence, when later on assessing the $\beta$-coefficient estimates, this will be our benchmark.
+
+\subsection{\textbf{Mean-Squared Error}}
+After having set up our DGP, the next step is to assess the quality of our $\beta$-estimates for the respective quantiles of choice. For this, we make use of the Mean-Squared Error (MSE).
+The MSE \textit{"[quantifies] the extent to which the predicted response value for a given observation is close to the true response value for that observation"} \textcolor{blue}{James et. al. (2017) p 29}.
+Formally, for B repeated draws from the population distribution
+\begin{equation}
+MSE_{n} = \frac{1}{B} \sum_{b=1}^{B} ( \hat{\theta}_{b} - \theta)^2,
+\end{equation}
+with $\hat{\theta_{b}}$ being the parameter estimate for draw b in B and $\theta$. being the true parameter value \textcolor{blue}{Hansen (2022) p 242}.
+In this setting, we are interested in the MSE of our $\beta$-estimates for $\beta_{i}$ with $i \in \{1,2,3\}$.
+Further, we are not only interested in the MSE for a fixed sample size, but rather how the MSE changes for an increasing sample size. Theory suggests that the MSE should decrease with increasing sample size, since having more data should make our estimates more precise, thus resulting in smaller average squared deviations of our estimates from the true values.
+For this task, we made use of the concept of Monte-Carlo simulations, that is - we repeatedly simulated data samples according to our DGP and used them for further calculations. In this case, we created a function, that makes 1,000 repeated draws from our DGP for a given sample size and calculated the MSE by the formula in equation (12). Then, we applied a vector of sample sizes, (10,15,20,30,50,75,100,250,500,1000,2000), to this function to obtain the respective MSEs. The results can be seen below (note, that we used logarithmic values for the MSE to make the scale more convenient for illustrational purposes):
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{mse_beta0.png}
+\caption{The MSE for $\beta_{0}$ for the different quantiles}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{mse_beta1.png}
+\caption{The MSE for $\beta_{1}$ for the different quantiles}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{mse_beta2.png}
+\caption{The MSE for $\beta_{2}$ for the different quantiles}
+\end{figure}
+Consistent with our expectations from the theoretical perspective, the MSE for all coefficient estimates decreased as the sample size increased. This observation aligns with the principle that larger datasets tend to produce more accurate parameter estimates, consequently leading to a reduction in the MSE. The graphical representations, specifically in Fig. 2, illustrate that the magnitude of the MSE for the intercept term ($\beta_{0}$) converges across the different quantiles and OLS as the sample size grows. This convergence suggests a uniform improvement in the precision of the intercept estimates irrespective of the regression method employed.
+However, a notable divergence is observed in the MSE for the coefficient estimates for $\beta_{1}$ and $\beta_{2}$. Fig. 3 and Fig. 4 indicate that even though both the MSEs for our quantile regression coefficient estimates and the MSE for our OLS coefficient estimate decline with increasing sample sizes, the OLS estimates exhibit a significantly lower MSE. The MSEs of the OLS estimates for $\beta_{1}$ and $\beta_{2}$ are two and four orders of magnitude lower, respectively, compared to those from quantile regression. This indicates that in the case of $\beta_{1}$ $\beta_{2}$, OLS proves to be more efficient than quantile regression in estimating the true $\beta$ coefficient, especially in larger samples.
+
+\subsection{\textbf{Consistency}}
+After having calculated the MSEs, our next step was to check whether the coefficient estimates provided by the rq-function resulted in consistent estimators.
+Recall, an estimator $\hat\theta_{n}$ is \textit{weakly consistent} if for any $\epsilon < 0$
+\begin{equation}
+\begin{aligned}
+P(|\hat\theta_{n} - \theta | > \epsilon) \rightarrow 0 \\
+or \\
+P(|\hat\theta_{n} - \theta | \leq \epsilon) \rightarrow 1 
+\end{aligned}
+\end{equation}
+
+That is, the probability that the difference in absolute value between the coefficient estimate and the true value is greater than a small real number $\epsilon$ converges to zero.
+
+To assess whether our $\beta$-coefficient estimates obtained by the \textit{rq}-function are indeed (weakly) consistent estimators, we created a function in R that works as follows:
+Taking the following inputs
+\begin{itemize}
+\item n: the number of observations per sample
+\item S: the number of Monte-Carlo repetitions (resamplings)
+\item all\textunderscore eps:  an increasing sequence of epsilon values
+\end{itemize}
+the function then calculates the probability that our $\beta$-coefficient estimate deviates (in absolute terms) less than an epsilon-factor \footnote{Note, that since the $\beta$-coefficients of our underlying DGP differ substantially in magnitude, using the same value for $\epsilon$ would distort our results. Therefore, we multiply our resp. true $\beta$-value with $\epsilon$} from its true value, over the same quantiles and for an OLS model as before.
+Specifying the inputs such that $n = 2,000$, $S = 5,000$, and \text{all \textunderscore eps} is a sequence from 0.01 to 1 in steps of 0.01, we obtain the following results:
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{consistency_beta0.png}
+\caption{Consistency for $\beta_{0}$ for the different quantiles and OLS}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{consistency_beta1.png}
+\caption{Consistency for $\beta_{1}$ for the different quantiles and OLS}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{consistency_beta2.png}
+\caption{Consistency for $\beta_{2}$ for the different quantiles and OLS}
+\end{figure}
+Fig. 5, Fig.6, and Fig.7 indicate that all estimators under consideration demonstrate consistency, as evidenced by the probability curves approaching unity with an increasing $\epsilon$. This convergence is indicative of the estimators' reliability; as the sample size grows, the probability of the estimates deviating from the true parameter values by a small epsilon decreases towards zero.
+Specific observations can be made regarding the rate of convergence among the different coefficients. For $\beta_{2}$, the consistency is "highest," with the probability curve ascending more rapidly towards one compared to $\beta_{0}$ and $\beta_{1}$. Conversely, the "lowest" consistency is observed for $\beta_{0}$, where the probability curve's ascent towards one is less steep, implying a slower rate of convergence. This suggests that our estimates for $\beta_{2}$ have the highest rate of convergence in probability.
+
+\subsection{\textbf{Coverage Probability}}
+Having calculated consistency probabilities and the MSEs, we now turn to the coverage probability.
+Recall, \textit{Coverage Probability} is the number of times the true parameter falls within a confidence interval constructed from a random sample.
+For this task, we constructed a function called \textbf{\textit{func\textunderscore cov\textunderscore prob\textunderscore calc\textunderscore n\textunderscore alt}(n)}, that takes only the sample size \textit{n} as a variable input. Then, for S = 2,000 Monte-Carlo repetitions, the function draws samples from our DGP with sample size n and extracts, for each draw, the corresponding confidence intervals for our $\beta$-estimates for our quantiles of interest and OLS, from the \textit{rq()}- resp. \textit{lm()}- function for a 95 \% confidence level. It then calculates the relative number of times the respective true coefficient values are within these confidence intervals, to obtain the coverage probabilities for our coefficient estimates. Having done this over a sequence of sample sizes (50, 60, 80, 100, 150, 200, 300, 500, 800, 2000), we get the following results:
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{cov_prob_beta0.png}
+\caption{Coverage probability of $\beta_{0}$-estimates for the different quantiles and OLS}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{cov_prob_beta1.png}
+\caption{Coverage probability of $\beta_{1}$-estimates for the different quantiles and OLS}
+\end{figure}
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{cov_prob_beta2.png}
+\caption{Coverage probability of $\beta_{2}$-estimates for the different quantiles and OLS}
+\end{figure}
+For the estimated $\beta_{0}$-coefficients, the coverage probability seems to converge towards the confidence level for all quantiles, but for the OLS coefficient the coverage probability decreases below the confidence level (Fig. 8).
+For $\beta_{1}$ the coverage probability falls resp. stays below the confidence level for all but the 0.05 quantile regression line (Fig. 9).
+For $\beta_{2}$ the coverage probability of the quantile regression lines behaves similar to what we could see in Fig. 8. But here, the coverage probability for the OLS coefficient estimate decreases even below 0.70 for a sample of size 2,000.
+
+Hence, while the OLS estimator is consistent and exhibits low bias (as could be seen in the two previous sections), its coverage probability deviates strikingly (at least for the $\beta_{2}$-estimate) from the confidence level. 
+Following the arguments in \textcolor{blue}{Astivia and Zumbo (2019)}, this issue exactly arises due to the existence of heteroscedasticity, since it "biases the standard errors and test-statistics"\textcolor{blue}{Astivia and Zumbo (2019) p 2}. That is - the presence of heteroscedasticity results in standard errors that are too small, such that the confidence intervals that are calculated using these standard errors are "too narrow to accurately reject the null hypothesis [at the alpha level of 0.05]"\textcolor{blue}{Astivia and Zumbo (2019) p 2}. According to \textcolor{blue}{Astivia and Zumbo (2019) citing Long and Ervin (2000)} increasing the sample size will not solve the issue of diverging coverage probability and confidence level, and in fact, can even enhance this issue.
+\footnote{To give a more complete picture, we would have to compute the length of the resp. estimated confidence intervals, to assess, whether they are, in fact, too short. Unfortunately, we weren't able to accomplish this task due to the time constraint of the deadline for this paper.}
+
+\section{\textbf{Comparison of Predictive Power - Quantile Regression versus OLS}}
+In this chapter, we compare quantile regression to OLS regression when assessing the respective models' prediction ability. That is, we use Monte-Carlo Simulations, to compare predictions using an OLS regression model and a median quantile regression model. Here, our measure of performance comparison is the \textit{test MSE} of the predicted output values. We start with a homoscedastic DGP resp. more precisely a situation, where no OLS assumption is violated and introduces settings, in which theory (see Chapter I) suggests, that median quantile regression might exhibit an advantage in terms of prediction accuracy.
+\subsection{\textbf{Starting Point - Homoscedastic Data}}
+First, we compare OLS regression and quantile regression for a homoscedastic DGP, in the form of:
+\begin{equation}
+y_{i} {=} \beta_{0} + \beta_{1} * X_{i} + \beta_{2} * X_{i}^{2} + \epsilon ,
+\end{equation} with
+\begin{itemize}
+\item $X \sim N(0,16))$
+\item $\epsilon \sim N(0,400)$
+\end{itemize}
+For a single draw of size n = 3000 with \textbf{$\beta$}=(1,5,-1), this setup is depicted in Fig 11..
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{homoscedastic_data_start.png}
+\caption{Starting Point - Homoscedastic DGP}
+\end{figure}
+We then created a function, \textbf{\textit{perform\textunderscore comparison\textunderscore qr\textunderscore ols}(train\textunderscore percentage, S)} for this task. The function takes as variable inputs the relative size of the training set and the number of Monte-Carlo iterations. Executed, the function simulates data from the DGP shown above, splits the data into a training and a test set and, subsequently uses the training set to estimate the $\beta$-vectors for OLS (using the inbuilt \textit{lm()-function} and median quantile regression (using the inbuilt \textit{rq()-function}. After this, these estimates are used to make predictions for the independent variable using the test set's covariates and calculating the test MSEs for OLS and quantile regression as the average squared deviations of the fitted values (predictions) from their actual values. This process is then repeated S times. Finally, the function calculates the percentage of times when the test MSE for OLS is smaller than the test MSE for quantile regression.
+Using  \textbf{\textit{perform\textunderscore comparison\textunderscore qr\textunderscore ols}(train \textunderscore percentage = 0.8, S = 1000)}, we calculate, that OLS outperforms quantile regression in 100 \% of cases.
+\begin{lstlisting}
+> mse_comparison_1 <- perform_comparison_qr_ols(
++	train_percentage=0.8,
++	S=1000)
+> mse_comparison_1
+[1] 1
+\end{lstlisting}
+This result is not surprising, since the OLS estimator is the best linear unbiased estimator, such that we expected an unambiguous result like this.
+
+\subsection{\textbf{Variation 1:  Heteroscedastic Data}}
+To introduce heteroscedasticity, we altered our previous DGP as follows:
+\begin{equation}
+y_{i} {=} \beta_{0} + \beta_{1} * X_{i} + \beta_{2} * X_{i}^{2} + \epsilon ,
+\end{equation} with
+\begin{itemize}
+\item $X \sim N(20,1))$
+\item $\epsilon \sim N(0,(exp(0.5*|x*0.2|^2))^2)$
+\end{itemize}
+For a single draw of size n = 3000 with \textbf{$\beta$} = (1, 5, -1), the new setup can be observed in Fig. 12.
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{heteroscedastic_data.png}
+\caption{Variation 1: Heteroscedastic Data}
+\end{figure}
+Now, we apply an otherwise identical function as before using this new DGP, to obtain the percentage of times OLS outperforms quantile regression.
+Using the same values for the size of the training set and the number of repetitions, our simulation shows, that now OLS is outperforming quantile regression in only 43 \% of cases. That is, in this setting, median quantile regression is more capable of making better predictions.
+\begin{lstlisting}
+> mse_comparison_2 <- perform_comparison_qr_ols_hs(
++	train_percentage=0.8,
++	S=1000)
+> mse_comparison_2
+[1] 0.4315
+\end{lstlisting}
+This tendency was also expected by us. Since the loss function for OLS uses squared terms, while the loss function for quantile regression only uses absolute deviations, the OLS estimator is impacted more heavily by the increasing dispersion of the data points towards the tails (in this case, the right tail) than its quantile regression's counterpart, the median. 
+
+\subsection{\textbf{Variation 2: Outliers}}
+The last variation in this chapter is the introduction of outliers. 
+To simulate outliers, we altered the initial DGP of this chapter such that a small fraction of our covariates now has a different error term, while all other explanatory variables exhibit the same error term as before. 
+More precisely, the outlier's error term follows a uniform distribution, such that $\epsilon_{outliers} \sim U(1000,2000)$.
+For a single draw of size n = 1000 with \textbf{$\beta$} = (1, 5, -1) this setup is depicted in Fig. 13.
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{homoscedastic_data_outliers.png}
+\caption{Variation 2: Homoscedastic Data with Outliers}
+\end{figure}
+To again, compare OLS and median quantile regression in this setting again, we apply a similar function as before. It works the same as before, but now it uses two different DGPs: For the training set, the function uses data from the new DGP, which includes a fraction of outliers, while the test set uses the DGP from the initial setup. Calling this function with a training set share of 80 \% and with 2,000 Monte-Carlo repetitions, OLS outperforms median quantile regression in only 11 \% of cases.
+Again, these results were expected. Again, this follows the same argumentation as for the case with heteroscedastic data before, where quantile regression's loss function is relatively insensitive to outliers (in comparison to OLS) and thus the same holds for the resulting quantile regression estimators.
+\begin{lstlisting}
+> mse_comparison_3 <- perform_comparison_qr_ols_outliers(
++	train_percentage=0.8,
++	S=3000,
++	n=2000)
+> mse_comparison_3
+[1] 0.111
+\end{lstlisting}
+
+
+
+\section{\textbf{Quantile Crossings}}
+In this last chapter of our simulation part, we address one main issue with quantile regression.
+As outlined in Chapter I, when estimating different quantile regression lines simultaneously, and the respective slope coefficients differ, there is a high risk that these regression lines will cross at some point (resp. certainty that they will do so, depending on the DGP). Since quantiles cannot "cross" in by the very definition of quantiles, this needs to be addressed. 
+In the following, we illustrate this issue and show one way to deal with it (see Chapter I).
+\subsection{\textbf{Quantile Crossing - Initial Setup}}
+As stated before, the issue of quantile crossing arises, when the slope coefficients of the independent variable differ, such that we end up with several quantile regression lines, that cross at some point. In reverse, when their slopes don't differ, they don't intersect. Therefore, we start again, with the case of a homoscedastic data set. For illustrative purposes, we consider a simple regression model with only one slope coefficient:
+\begin{equation}
+y_{i} {=} \beta_{0} + \beta_{1} * X_{i} + \epsilon ,
+\end{equation} with
+\begin{itemize}
+\item $X \sim N(10,9))$
+\item $\epsilon \sim N(0,100)$
+\end{itemize}
+Further, we simultaneously estimate the quantile regression lines for the following quantiles: (0.05, 0.25, 0.5, 0.75, 0.95).
+Graphically, for a single draw of size n = 3000 and $\beta_{0} = 5$, $\beta_{1} = 1$, the estimated quantile regression lines in this setup are depicted in Fig. 14.
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{qr_crossing_homoscedastic.png}
+\caption{Quantile Crossing for Homoscedastic Data}
+\end{figure}
+As Fig. 14 implies, there seems to be no issue with quantile crossing. But to address this question properly, we created a function,  \textbf{\textit{func\textunderscore crossing\textunderscore qr\textunderscore detection}(S, n, train\textunderscore percentage )}. This function repeatedly (S times) simulates data from the DGP above and splits the data into a training and a test set (according to the value for \textit{train\textunderscore percentage} $\in$(0, 1). Then, the training data is used to derive an estimation for the $\beta$ - vector using the \textit{qr()-function} for our five quantiles of interest. From this, the function calculates then the fitted values using the test data set. Finally, the function computes the relative frequency, with which the predicted value for the dependent variable for a lower quantile is above that of a higher quantile for each quantile. The maximum value is then used as the indicator of how frequently these prediction lines intersect.
+With n = 1000, the size of the training set of 80 \%, and S = 1000 Monte-Carlo repetitions, We can support the thesis and implications from Fig. 14, that there is no issue with quantile crossings since the relative frequency is 0.
+\\
+\\
+\\
+
+\begin{lstlisting}
+> quant_crossing_no_issue <- func_crossing_detection(
++	S=1000,
++	n=1000,
++	train_percentage = 0.8)
+> quant_crossing_no_issue
+[[1]]
+  Quantile Number_of_Crossings
+1     0.05                   0
+2     0.25                   0
+3     0.50                   0
+4     0.75                   0
+5     0.95                   0
+
+$frequency_of_crossings
+[1] 0
+\end{lstlisting}
+
+\subsection{\textbf{Quantile Crossing - Heteroscedasticity}}
+Again, as theory suggests, when instead of a homoscedastic DGP switching to a heteroscedastic one, we should expect to run into the issue of quantile crossings, when estimating multiple quantile regression lines simultaneously for such a data set. To examine this, we altered the initial setup such that now the error term is heteroscedastic. That is, $\epsilon \sim N(0, exp(0.2*X_{i}^){2}$.
+Graphically, for a single draw of size n = 3000 and $\beta_{0} = 5$, $\beta_{} = 1$, the estimated quantile regression lines are depicted in Fig. 15.
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{qr_crossing_heteroscedastic.png}
+\caption{Quantile Crossing for Heteroscedastic Data}
+\end{figure}
+Fig. 15 already implies, that the issue of quantile crossing is ubiquitous. This impression is completely supported, by applying the previously explained function to this data.
+\begin{lstlisting}
+> quant_crossing_is_issue <- func_crossing_detection(
++	S=1000,
++	n=10000,
++	train_percentage = 0.8)
+> quant_crossing_is_issue
+[[1]]
+  Quantile Number_of_Crossings
+1     0.05                1000
+2     0.25                1000
+3     0.50                1000
+4     0.75                1000
+5     0.95                1000
+
+$frequency_of_crossings
+[1] 1
+\end{lstlisting}
+Using the same function-parameter values (n=1000, train\textunderscore percentage = 0.8, S = 1000), we can confirm, that the issue of quantile crossing happens to appear in 100 \% of cases.
+
+\subsection{\textbf{Quantile Crossing - Log-Transformation}}
+As stated in Chapter I, one possibility to deal with the issue of quantile crossing is to apply a logarithmic transformation to the data, before training the quantile regression model.
+For this, we use the DGP from the previous subchapter, but now log-transform our independent variable by applying the \textit{log()-function} in R to it.
+All else the same, graphically,  for a single draw of size n = 3000 and $\beta_{0} = 5$, $\beta_{} = 1$, the estimated quantile regression lines are depicted in Fig. 16.
+\begin{figure}[h]
+\centering
+\includegraphics[width=90mm]{qr_crossing_heteroscedastic_log.png}
+\caption{Quantile Crossing for Heteroscedastic Data with log-tranformation}
+\end{figure}
+From Fig. 16 we can already derive the impression, that with this log-transformation, the issue of quantile crossing might be mitigated. To assess the extent to which it is, we apply a different version of our previous function, with the only difference, being that now the DGP uses log-transformed X-variables. Again, using the same function-parameter values as before  (n=1000, train\textunderscore percentage = 0.8, S = 1000), we can show, that this method indeed decreases the issue of quantile crossing by an order of magnitude. Quantile Crossing appears in only 7.5 \% of cases.
+\begin{lstlisting}
+> quant_crossing_issue_log <- func_crossing_detection_log(
++	S=1000,
++	n=10000,
++	train_percentage = 0.8)
+> quant_crossing_issue_log
+[[1]]
+  Quantile Number_of_Crossings
+1     0.05                  68
+2     0.25                  75
+3     0.50                  71
+4     0.75                  47
+5     0.95                  62
+
+$frequency_of_crossings
+[1] 0.075
+\end{lstlisting}
+
+\section{\textbf{Conclusion}}
+Conditional mean-based regression, especially ordinary least squares (OLS) regression, is still a dominating method in many fields of research. Violations of the underlying assumptions for OLS in practice, like heteroscedastic data or the existence of outliers, provide a first motivation to look for more robust methods when researchers are interested in the general inference ability of their model. Over and beyond, researchers might be interested in more than just the simple average effect of one or more independent variables on the dependent variable. They might be interested in the average effect such a regressor variable has on the output, but at different points in the distribution. By applying quantile regression (QR) researchers can examine exactly this. Hence, they end up with conditional quantiles of the response variable for given predictor variables and can infer more nuanced policy considerations from their regression findings. Thus, they can detect heterogenous effects and the respective conclusions, that can be derived from this.
+In this paper, we explored how QR coefficient estimates behave across different quantiles in compared to the  OLS estimator's performance. We compared a prediction model using median QR and OLS regression over various scenarios. Additionally, we tackled a significant QR issue - quantile crossings.
+After the mathematical derivations necessary for understanding how QR works, we employed Monte Carlo simulations to evaluate the QR coefficient estimates in terms of biasedness, consistency, and coverage probability in a finite sample setting.
+For this, we motivated a heteroscedastic data-generating process (DGP), simulating the conception of the environmental Kuznets curve from the field of environmental economics. We then modeled this DGP using an OLS regression model and a QR model of polynomial degree two, focusing on five different quantiles of interest.
+Our simulation study demonstrated that the QR coefficient estimates, generated by using the \textit{qr()-function} from the \textit{quantreg}-package in R, are consistent estimators, with a rate of convergence in probability to their true values, almost identical to the one of the OLS estimator. Further, we were able to show, that the coverage probability for our QR coefficient estimates converges to resp. densely fluctuates around our given confidence level for Monte-Carlo simulations with an increasing sample size. This pattern did not apply to the OLS estimator, which deviated from the confidence level, due to underestimating standard errors in heteroscedastic data, leading to too narrow confidence intervals and thus a poor coverage probability that worsened with larger sample sizes. 
+In terms of biasedness, both types of estimators' mean-squared errors (MSEs) decreased with increasing sample sizes, but the OLS estimator significantly outperformed the QR estimators in terms of MSE. However, this bias does not necessarily reflect poorly on QR, as we show later.
+When comparing OLS and median QR for predictive model power under different data assumptions -  homoscedasticity, heteroscedasticity, and the existence of outliers - we observed that OLS surpasses QR in homoscedastic cases based on the test MSEs of predicted values, unsurprisingly, since the OLS estimator is the best linear unbiased estimator, when no OLS assumptions are violated. However, this advantage disappears under heteroscedastic conditions and in the presence of outliers, where OLS's sensitivity to outliers and heavy tails makes QR the superior method.
+In our final chapter, we addressed the issue of quantile crossings using Monte Carlo simulations. This issue arises when estimating several regression lines for different quantiles simultaneously, and leads to (potential) line crossings if the slope coefficients differ, implying that the respective quantiles cross, which cannot be.
+To motivate and to show one possibility of dealing with this issue in practice, we started with a homoscedastic data set, where applying a simple linear QR model for different quantiles results in parallel regression lines and thus, avoiding the issue with quantile crossings. 
+However, this situation diminishes the main rationale for using QR in the first place.
+Therefore, we introduced a heteroscedastic data set where QR application becomes more justified and confirms the prevalence of quantile crossings. Finally, we used Monte-Carlo simulations to confirm that when log-transforming the data before conducting QR, the issue of quantile crossings can be mitigated significantly.
+This paper reaffirms quantile regression's pivotal role in econometric analysis, surpassing traditional methods in versatility and insight, particularly in heterogeneous data scenarios. QR is not merely an alternative to OLS but it presents a crucial, nuanced lens through which the multifaceted nature of economic data can be viewed and interpreted. Our findings advocate for a broader adoption of QR, despite its shortcomings, suggesting it is a key to unlocking deeper, more precise economic insights and guiding more effective policy.
+\end{spacing}
+
+\begin{thebibliography}{00}
+\bibitem{b1} \textbf{Astivia and Zumbo (2019} Astivia, O. L. O., Zumbo, B. D. (2019). Heteroscedasticity in Multiple Regression Analysis: What it is, How to Detect it and How to Solve it with Applications in R and SPSS. Practical Assessment, Research \& Evaluation, 24(1)
+\bibitem{b2} \textbf{Hansen (2022)} Hansen, Bruce E. (2022) Econometrics. Princeton, New Jersey: Princeton University Press.
+\bibitem{b3} \textbf{Huang et. al. (2017)}  Huang Q, Zhang H, Chen J, He M (2017) Quantile Regression Models and Their Applications: A Review. J Biom Biostat 8: 354. doi: 10.4172/2155- 6180.1000354
+\bibitem{b4} \textbf{James et. al. (2017)} James, Gareth; Witten, Daniela; Hastie, Trevor, Tibshirani, Robert (2017): An Introduction to Statistical Learning - With Applications in R. New York, Springer.
+\bibitem{b5} \textbf{Keho (2017)} Keho, Yaya (2017): Revisiting the Income, Energy Consumption and Carbon Emissions Nexus: New Evidence from Quantile Regression for Different Country Groups. International Journal of Energy Economics and Policy, 7(3), 356-363
+\bibitem{b6} \textbf{Koenker and Bassett (1978)} Koenker, R.,  Bassett, G. (1978). Regression Quantiles. Econometrica, 46(1), 33–50. https://doi.org/10.2307/1913643
+\bibitem{b7} \textbf{Koenker (2005} Koenker, Roger (2005): Quantile regression. Cambridge, New York: Cambridge University
+\bibitem{b8} \textbf{Kolstad (2011)} Kolstad, Charles D. (2011): Intermediate Environmental Economics. New York: Oxford University Press Inc.
+\bibitem{b9} \textbf{Long and Ervin (200)} Long, J. S., Ervin, L. H. (2000). Using Heteroscedasticity Consistent Standard Errors in the Linear Regression Model. The American Statistician. Vol. 54, No. 3 (Aug., 2000)
+\bibitem{b10} \textbf{Mishra (2022} Mishra, Mukesh Kumar (2022): The Kuznets Curve for the Sustainable Environment and Economic Growth. ZBW - Leibnitz Information Centre for Economics, Kiel, Hamburg.
+\bibitem{b11} \textbf{R-Documentation} R-Documentation for quantreg-package. https://cran.r-project.org/web/packages/quantreg/quantreg.pdf
+\end{thebibliography}
+
+
+\end{document}
